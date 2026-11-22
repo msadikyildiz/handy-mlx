@@ -23,7 +23,7 @@
 //! - `supervisor`: the parent side ([`EngineSupervisor`]).
 //! - `worker`: the child process.
 
-mod protocol;
+pub(crate) mod protocol;
 mod supervisor;
 mod worker;
 

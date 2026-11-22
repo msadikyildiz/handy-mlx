@@ -1,0 +1,35 @@
+name: Build Handy MLX for Apple Silicon
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*-mlx.*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+      - uses: dtolnay/rust-toolchain@stable
+      - run: bun install --frozen-lockfile
+      - run: bun run tauri build --bundles app -- --locked
+        env:
+          CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+      - name: Verify and archive the app
+        run: |
+          test "$(uname -m)" = arm64
+          app="src-tauri/target/release/bundle/macos/Handy MLX.app"
+          codesign --verify --deep --strict "$app"
+          "$app/Contents/MacOS/handy" --list-models --json > /dev/null
+          ditto -c -k --keepParent "$app" Handy-MLX-arm64.zip
+          shasum -a 256 Handy-MLX-arm64.zip > SHA256SUMS
+      - uses: actions/upload-artifact@v7
+        with:
+          name: handy-mlx-macos-arm64
+          path: |
+            Handy-MLX-arm64.zip
+            SHA256SUMS

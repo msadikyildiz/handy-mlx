@@ -5,6 +5,9 @@ use clap::Parser;
 use handy_app_lib::CliArgs;
 
 fn main() {
+    // Fork updates are installed from the Handy MLX releases.
+    std::env::set_var("HANDY_DISABLE_UPDATER", "1");
+
     // Let users pick GTK's display backend even inside the AppImage, whose
     // launch hook forces GDK_BACKEND=x11 over the user's own value (#1729,
     // #2034; hook workaround for tauri-apps/tauri#8541). Runs first so GTK

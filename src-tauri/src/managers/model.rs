@@ -1,3 +1,4 @@
+use super::mlx::{MlxConfig, MLX_MODEL_ID};
 use super::model_capabilities::{
     CapabilityProbe, CapabilityProber, Compatibility, GgufHeaderProber,
 };
@@ -1071,6 +1072,9 @@ impl ModelManager {
 
         // Auto-discover transcribe-cpp GGUF models already in the shared HF cache.
         Self::discover_hf_cache_models(&mut available_models);
+        if let Ok(config) = MlxConfig::read(app_handle) {
+            available_models.insert(MLX_MODEL_ID.into(), config.model_info());
+        }
 
         let manager = Self {
             app_handle: app_handle.clone(),
@@ -1174,6 +1178,9 @@ impl ModelManager {
             warn!("Rescan: failed to discover custom models: {}", e);
         }
         Self::discover_hf_cache_models(&mut snapshot);
+        if let Ok(config) = MlxConfig::read(&self.app_handle) {
+            snapshot.insert(MLX_MODEL_ID.into(), config.model_info());
+        }
 
         // Merge only the genuinely-new ids back into the live registry. `or_insert`
         // leaves every existing entry exactly as it was.
@@ -1320,6 +1327,12 @@ impl ModelManager {
         let mut vanished_models: Vec<String> = Vec::new();
 
         for model in models.values_mut() {
+            if model.id == MLX_MODEL_ID {
+                if MlxConfig::read(&self.app_handle).is_err() {
+                    vanished_models.push(model.id.clone());
+                }
+                continue;
+            }
             if let ModelSource::HuggingFace { repo_id, revision } = &model.source {
                 // A models-dir copy counts too: mirror-fallback downloads land
                 // there, and it makes manual drop-ins of catalog files work.
@@ -2369,6 +2382,9 @@ impl ModelManager {
     }
 
     pub fn delete_model(&self, model_id: &str) -> Result<()> {
+        if model_id == MLX_MODEL_ID {
+            anyhow::bail!("The shared MLX snapshot is managed outside Handy");
+        }
         debug!("ModelManager: delete_model called for: {}", model_id);
 
         let model_info = {
@@ -2508,6 +2524,9 @@ impl ModelManager {
     }
 
     pub fn get_model_path(&self, model_id: &str) -> Result<PathBuf> {
+        if model_id == MLX_MODEL_ID {
+            return Ok(MlxConfig::read(&self.app_handle)?.snapshot);
+        }
         let model_info = self
             .get_model_info(model_id)
             .ok_or_else(|| anyhow::anyhow!("Model not found: {}", model_id))?;

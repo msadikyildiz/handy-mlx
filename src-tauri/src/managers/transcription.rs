@@ -13,6 +13,7 @@ use crate::language_detection::{
     IdentifyError, LanguageDecision, LanguageDetector, LanguageSource, Plan,
 };
 use crate::managers::audio::{create_smoothed_detector, AudioRecordingManager};
+use crate::managers::mlx::{MlxConfig, MLX_MODEL_ID};
 use crate::managers::model::ModelManager;
 use crate::notices::{self, Notice, NoticeCode, NoticeSource};
 use crate::overlay;
@@ -615,11 +616,22 @@ impl TranscriptionManager {
                 }
             }
         };
+        let mlx = (model_id == MLX_MODEL_ID)
+            .then(|| MlxConfig::read(&self.app_handle))
+            .transpose()
+            .inspect_err(|error| emit_loading_failed(&error.to_string()))?;
+        if mlx.is_some() && device_index.is_some() {
+            let message =
+                "MLX uses the Apple GPU and does not accept a transcribe.cpp device index";
+            emit_loading_failed(message);
+            anyhow::bail!(message);
+        }
         let requested_device = format!("{:?}", device);
         let info = self
             .engine
             .load(LoadSpec {
                 path: model_path.clone(),
+                mlx,
                 backend,
                 device,
             })

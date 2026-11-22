@@ -2,6 +2,10 @@
 
 This file provides guidance to AI coding assistants working with code in this repository.
 
+## Handy MLX on Apple Silicon
+
+Follow [Set up MLX on macOS](README.md#set-up-mlx-on-macos) to build and configure this fork. The CLI model ID is `shared:whisper-mlx`. The configuration helper discovers an existing Hugging Face snapshot offline. Upstream release tags are the base for fork updates.
+
 ## Development Commands
 
 **Prerequisites:**

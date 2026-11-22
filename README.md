@@ -1,4 +1,50 @@
-# Handy
+# Handy MLX
+
+Handy MLX is an Apple Silicon dictation app based on [Handy v0.10.1](https://github.com/cjpais/Handy/releases/tag/v0.10.1). It runs Whisper large-v3-turbo through MLX using an existing Hugging Face snapshot. Handy reads the weights in place. Other apps can use the same file, and deleting models in Handy cannot remove this snapshot.
+
+## Set up MLX on macOS
+
+1. Get the source for this fork. From a terminal with Git installed, run
+
+   ```sh
+   git clone https://github.com/msadikyildiz/handy-mlx.git
+   cd handy-mlx
+   ```
+
+2. Register your existing `mlx-community/whisper-large-v3-turbo` snapshot. If you already run MLX Whisper in another Python environment, use that environment's interpreter to run `scripts/configure-mlx.py`. Otherwise, with [uv](https://docs.astral.sh/uv/) installed, run
+
+   ```sh
+   mlx_env="$HOME/Library/Application Support/com.pais.handy.mlx/venv"
+   uv venv --python 3.12 "$mlx_env"
+   uv pip install --python "$mlx_env/bin/python" 'mlx-whisper==0.4.3'
+   "$mlx_env/bin/python" -I scripts/configure-mlx.py
+   ```
+
+   Setup looks in the Hugging Face cache for a previously downloaded model. For a different location or revision, pass `--snapshot "/absolute/path/to/snapshot"`. The directory must contain `config.json` and `weights.safetensors`. The script records their location in `~/Library/Application Support/com.pais.handy.mlx/whisper-mlx.json`. Keep the Python environment and the snapshot at those paths.
+
+3. For the prebuilt app, download `Handy-MLX-arm64.zip` and `SHA256SUMS` from the same [fork release](https://github.com/msadikyildiz/handy-mlx/releases). From the download directory, run `shasum -a 256 -c SHA256SUMS`, unzip the app and move it to Applications. The build is ad-hoc signed and has no Apple notarization.
+
+   To build from source with Bun, Rust, CMake and the Xcode Command Line Tools installed, run
+
+   ```sh
+   bun install --frozen-lockfile
+   CMAKE_POLICY_VERSION_MINIMUM=3.5 bun run tauri build --bundles app -- --locked
+   open "src-tauri/target/release/bundle/macos/Handy MLX.app"
+   ```
+
+4. Select **Whisper Large v3 Turbo (MLX)** in Models. Grant macOS Microphone and Accessibility permissions for live dictation and text insertion. If you also run upstream Handy, choose different recording shortcuts.
+
+For scripts and agents, the model ID is `shared:whisper-mlx`. From the checkout, test a 16 kHz mono WAV with
+
+```sh
+handy="src-tauri/target/release/bundle/macos/Handy MLX.app/Contents/MacOS/handy"
+"$handy" --list-models --json
+"$handy" --transcribe-file sample.wav --model shared:whisper-mlx --json
+```
+
+The included worker uses MLX Whisper's automatic language detection or the language selected in Handy. The fork has its own app settings and release tags. Updates are manual through [Handy MLX releases](https://github.com/msadikyildiz/handy-mlx/releases). The upstream Handy installers below install the original app.
+
+## Upstream Handy
 
 [![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/invite/WVBeWsNXK4)
 

@@ -19,6 +19,7 @@ use super::protocol::{
 };
 use super::worker::LOG_LINE_PREFIX;
 use super::{CPU_ONLY_FLAG, LOG_LEVEL_ENV, WORKER_FLAG};
+use crate::managers::mlx::{self, MlxConfig};
 use log::{debug, error, info, warn, Level};
 use std::collections::VecDeque;
 use std::fmt;
@@ -110,15 +111,16 @@ fn ms_to_samples(ms: i64) -> usize {
 #[derive(Debug, Clone)]
 pub struct LoadSpec {
     pub path: PathBuf,
+    pub mlx: Option<MlxConfig>,
     pub backend: Backend,
     pub device: DeviceSelector,
 }
 
 impl LoadSpec {
-    /// An explicitly chosen device (`--device-index`) never falls back to
-    /// CPU: its failures are reported, not hidden.
+    /// MLX runs on the Apple GPU. An MLX model or an explicit device index
+    /// must never fall back to a different transcribe.cpp device.
     fn pinned(&self) -> bool {
-        matches!(self.device, DeviceSelector::Index(_))
+        self.mlx.is_some() || matches!(self.device, DeviceSelector::Index(_))
     }
 
     fn cpu_only(&self) -> bool {
@@ -128,6 +130,7 @@ impl LoadSpec {
     fn cpu(&self) -> Self {
         Self {
             path: self.path.clone(),
+            mlx: self.mlx.clone(),
             backend: Backend::Cpu,
             device: DeviceSelector::Auto,
         }
@@ -748,7 +751,12 @@ impl Owner {
     /// see the CPU, so it doesn't list.
     fn start_worker(&self, spec: &LoadSpec) -> Result<(Worker, LoadedInfo), Failure> {
         let cpu_only = self.cpu_only_worker(spec);
-        let mut worker = self.shared.hello(cpu_only, !cpu_only)?;
+        let mut worker = match &spec.mlx {
+            Some(config) => {
+                Worker::spawn_command(config.command(), true).map_err(Failure::Spawn)?
+            }
+            None => self.shared.hello(cpu_only, !cpu_only)?,
+        };
         let info = worker.load(spec)?;
         Ok((worker, info))
     }
@@ -865,7 +873,12 @@ impl Owner {
         epoch: u64,
     ) -> Result<Response, Failure> {
         let worker = self.worker.as_mut().expect("caller ensured a worker");
-        let frame = encode_request(request, pcm)?;
+        let frame = if worker.mlx {
+            mlx::encode_run(request, pcm.unwrap_or_default())
+                .map_err(|e| Failure::Remote(e.to_string()))?
+        } else {
+            encode_request(request, pcm)?
+        };
         let sent = {
             // Check, send and publish under the lock cancel() takes after
             // bumping the epoch: either this sees the cancel and sends
@@ -1153,6 +1166,7 @@ impl Control {
 /// [`SHUTDOWN_GRACE`] to exit, kills it otherwise, and reaps it: once
 /// dropped, the worker is gone.
 struct Worker {
+    mlx: bool,
     control: Arc<Control>,
     responses: mpsc::Receiver<Response>,
     stderr_done: mpsc::Receiver<()>,
@@ -1185,6 +1199,10 @@ impl Worker {
         if cpu_only {
             command.arg(CPU_ONLY_FLAG);
         }
+        Self::spawn_command(command, false)
+    }
+
+    fn spawn_command(mut command: ProcessCommand, mlx: bool) -> io::Result<Self> {
         command
             .env(LOG_LEVEL_ENV, log::max_level().as_str())
             .stdin(Stdio::piped())
@@ -1209,6 +1227,7 @@ impl Worker {
         LIVE_WORKERS.fetch_add(1, Ordering::SeqCst);
         // Built before the threads so a failure below still reaps the child.
         let worker = Worker {
+            mlx,
             control: Arc::new(Control {
                 pid,
                 child: Mutex::new(child),
@@ -1225,7 +1244,13 @@ impl Worker {
             .spawn(move || write_frames(stdin, frames))?;
         thread::Builder::new()
             .name("transcribe-worker-out".into())
-            .spawn(move || read_responses(stdout, response_tx))?;
+            .spawn(move || {
+                if mlx {
+                    mlx::read_replies(stdout, response_tx);
+                } else {
+                    read_responses(stdout, response_tx);
+                }
+            })?;
         // Always drain stderr: a full pipe would block the worker.
         let tail = Arc::clone(&worker.stderr_tail);
         thread::Builder::new()
@@ -1248,11 +1273,7 @@ impl Worker {
                 let _ = stderr_done_tx.send(());
             })?;
 
-        debug!(
-            "Started {}transcription worker (pid {})",
-            if cpu_only { "CPU-only " } else { "" },
-            pid
-        );
+        debug!("Started transcription worker (pid {})", pid);
         Ok(worker)
     }
 
@@ -1262,6 +1283,18 @@ impl Worker {
             backend: spec.backend,
             device: spec.device.clone(),
         };
+        // The MLX worker loads the snapshot passed on its command line and sends
+        // its ready reply before reading audio.
+        if let Some(config) = &spec.mlx {
+            return match self.wait(&request, LOAD_TIMEOUT)? {
+                Response::Ok => {
+                    let info = config.loaded_info();
+                    self.info = Some(info.clone());
+                    Ok(info)
+                }
+                other => Err(unexpected(&other)),
+            };
+        }
         match self.call(&request, None, LOAD_TIMEOUT)? {
             Response::Loaded(info) => {
                 self.info = Some(info.clone());
@@ -1563,6 +1596,7 @@ mod tests {
     fn spec() -> LoadSpec {
         LoadSpec {
             path: env_path("HANDY_TEST_MODEL"),
+            mlx: None,
             backend: Backend::Auto,
             device: DeviceSelector::Auto,
         }
