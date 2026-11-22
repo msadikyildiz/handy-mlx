@@ -10,9 +10,43 @@ import {
   type CatalogModel,
   type MachineTier,
 } from "@handy-computer/models";
+import type { ModelInfo } from "@/bindings";
 import type { GradeLetter } from "@/components/shared/GradeChip";
 
 export type { CatalogModel, MachineTier };
+
+export const SHARED_MLX_ID = "shared:whisper-mlx";
+export const SHARED_MLX_REPO = "mlx-community/whisper-large-v3-turbo";
+
+/** The configured MLX snapshot is a separate local choice during onboarding.
+ * Its id keeps GGUF benchmark grades and downloadable files off this entry. */
+export const offeredModels = (
+  byRepo: ReadonlyMap<string, ModelInfo>,
+): CatalogModel[] => {
+  const offered = CURATED_ASR.filter((m) => byRepo.has(m.repository));
+  const mlx = byRepo.get(SHARED_MLX_REPO);
+  const whisper = catalog.getModel("whisper-large-v3-turbo");
+  if (mlx?.is_downloaded && whisper) {
+    offered.unshift({
+      ...whisper,
+      id: mlx.id,
+      name: mlx.name,
+      description: mlx.description,
+      repository: SHARED_MLX_REPO,
+      revision: "",
+      previousRevisions: [],
+      files: {},
+      languages: mlx.supported_languages,
+      capabilities: {
+        streaming: false,
+        translate: false,
+        timestamps: false,
+        languageDetection: true,
+      },
+    });
+  }
+  return offered;
+};
 
 const M = catalog.methodology;
 

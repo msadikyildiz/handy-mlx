@@ -21,6 +21,7 @@ import { DownloadStatus } from "./DownloadStatus";
 import { useOnboardingModels } from "./useOnboardingModels";
 import { useModelStore } from "@/stores/modelStore";
 import { moveScreens } from "./screenTransitions";
+import { SHARED_MLX_ID } from "@/lib/models/catalog";
 import { downloadPick } from "./downloadPick";
 import "./screenTransitions.css";
 
@@ -73,6 +74,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
     const selected = models.catalogFor(settings?.selected_model ?? "");
     const chosen =
       onDisk.find((m) => m.id === selected?.id) ??
+      onDisk.find((m) => m.id === SHARED_MLX_ID) ??
       onDisk.find((m) => models.picks.some((p) => p.model.id === m.id)) ??
       onDisk[0];
     store.set({ downloadId: chosen.id });

@@ -6,6 +6,7 @@ import { Radio } from "@/components/ui/Radio";
 import { Button } from "@/components/ui/Button";
 import { ModelTableRow } from "@/components/shared/modelTable/ModelTableRow";
 import { formatModelSize } from "@/lib/utils/format";
+import { SHARED_MLX_ID } from "@/lib/models/catalog";
 import { useModelStore } from "@/stores/modelStore";
 import { useModelsLocked } from "@/stores/transcriptionJobsStore";
 import {
@@ -41,8 +42,7 @@ export const ModelRow: React.FC<{ entry: Entry }> = ({ entry }) => {
   const onDisk = place === "active" || place === "ready" || place === "loading";
   const on = place === "active";
   // While History transcribes, the model in use can't change or go away.
-  const deletable =
-    onDisk && entry.id !== "shared:whisper-mlx" && !(locked && on);
+  const deletable = onDisk && entry.id !== SHARED_MLX_ID && !(locked && on);
   const inert = locked && place === "ready";
   const size = formatModelSize(entry.sizeMb);
   const download =

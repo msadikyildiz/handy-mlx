@@ -2,7 +2,9 @@ import { useMemo } from "react";
 import type { ModelInfo } from "@/bindings";
 import { useModelStore } from "@/stores/modelStore";
 import {
-  CURATED_ASR,
+  offeredModels,
+  SHARED_MLX_ID,
+  SHARED_MLX_REPO,
   groupModels,
   picksFor,
   type CatalogModel,
@@ -14,7 +16,7 @@ import { useMachineTier } from "./useMachineTier";
 /**
  * The app's models joined to the catalog by repo, with the picks, groups and
  * grades for these languages on this machine. Shared by onboarding and the
- * Models page; only curated models the app can download are offered.
+ * Models page, including a configured MLX snapshot.
  */
 export const useModelCatalog = (languages: string[]) => {
   const tier = useMachineTier();
@@ -23,6 +25,10 @@ export const useModelCatalog = (languages: string[]) => {
   const infoByRepo = useMemo(() => {
     const map = new Map<string, ModelInfo>();
     for (const info of infos) {
+      if (info.id === SHARED_MLX_ID) {
+        map.set(SHARED_MLX_REPO, info);
+        continue;
+      }
       const repo = repoIdOf(info);
       if (repo && !info.is_custom && !map.has(repo)) map.set(repo, info);
     }
@@ -31,10 +37,7 @@ export const useModelCatalog = (languages: string[]) => {
 
   const infoFor = (model: CatalogModel) => infoByRepo.get(model.repository);
 
-  const offered = useMemo(
-    () => CURATED_ASR.filter((m) => infoByRepo.has(m.repository)),
-    [infoByRepo],
-  );
+  const offered = useMemo(() => offeredModels(infoByRepo), [infoByRepo]);
 
   // Keyed by the codes: callers may pass a new array every render.
   const langsKey = languages.join();

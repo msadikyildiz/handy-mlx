@@ -191,8 +191,9 @@ export const Model: React.FC<ModelProps> = ({
     // open() is stable enough for a listener re-added with showAll
   }, [showAll]);
 
-  if (!pick || !selectedId) return null;
-  const selected = byId.get(selectedId) ?? pick.model;
+  if (!selectedId) return null;
+  const selected = byId.get(selectedId) ?? pick?.model;
+  if (!selected) return null;
 
   /* ---------------- the download ---------------- */
 
