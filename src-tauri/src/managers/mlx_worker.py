@@ -32,13 +32,18 @@ def main():
         if len(pcm) != size:
             return
         language = request["language"]
-        result = mlx_whisper.transcribe(
-            np.frombuffer(pcm, dtype="<f4"),
-            path_or_hf_repo=str(snapshot),
-            language=None if language == "auto" else language,
-            initial_prompt=", ".join(request["custom_words"]) or None,
-            verbose=None,
-        )
+        try:
+            result = mlx_whisper.transcribe(
+                np.frombuffer(pcm, dtype="<f4"),
+                path_or_hf_repo=str(snapshot),
+                language=None if language == "auto" else language,
+                initial_prompt=", ".join(request["custom_words"]) or None,
+                verbose=None,
+            )
+        except Exception as error:
+            # The complete PCM frame was consumed. The next request can still run.
+            reply(error=str(error))
+            continue
         reply(text=result["text"].strip(), language=result.get("language"))
 
 

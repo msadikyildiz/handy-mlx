@@ -873,12 +873,7 @@ impl Owner {
         epoch: u64,
     ) -> Result<Response, Failure> {
         let worker = self.worker.as_mut().expect("caller ensured a worker");
-        let frame = if worker.mlx {
-            mlx::encode_run(request, pcm.unwrap_or_default())
-                .map_err(|e| Failure::Remote(e.to_string()))?
-        } else {
-            encode_request(request, pcm)?
-        };
+        let frame = worker.frame(request, pcm)?;
         let sent = {
             // Check, send and publish under the lock cancel() takes after
             // bumping the epoch: either this sees the cancel and sends
@@ -1304,6 +1299,15 @@ impl Worker {
         }
     }
 
+    fn frame(&self, request: &Request, pcm: Option<&[f32]>) -> Result<Vec<u8>, Failure> {
+        if self.mlx {
+            mlx::encode_run(request, pcm.unwrap_or_default())
+                .map_err(|e| Failure::Remote(e.to_string()))
+        } else {
+            encode_request(request, pcm)
+        }
+    }
+
     /// Send one request and wait up to `deadline` for its response. Hitting
     /// the deadline kills the worker; after any `Crashed`/`Hung` the handle
     /// is dead and should be dropped.
@@ -1313,7 +1317,7 @@ impl Worker {
         pcm: Option<&[f32]>,
         deadline: Duration,
     ) -> Result<Response, Failure> {
-        if !self.control.send(encode_request(request, pcm)?) {
+        if !self.control.send(self.frame(request, pcm)?) {
             return Err(self.died());
         }
         self.wait(request, deadline)

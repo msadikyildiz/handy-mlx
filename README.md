@@ -11,7 +11,7 @@ Handy MLX is an Apple Silicon dictation app based on [Handy v0.10.1](https://git
    cd handy-mlx
    ```
 
-2. Register your existing `mlx-community/whisper-large-v3-turbo` snapshot. If you already run MLX Whisper in another Python environment, use that environment's interpreter to run `scripts/configure-mlx.py`. Otherwise, with [uv](https://docs.astral.sh/uv/) installed, run
+2. Register your existing `mlx-community/whisper-large-v3-turbo` snapshot. If you already run MLX Whisper in another Python environment, run `/path/to/venv/bin/python -I scripts/configure-mlx.py` with that environment’s interpreter. The app also uses Python’s isolated mode. Otherwise, with [uv](https://docs.astral.sh/uv/) installed, run
 
    ```sh
    mlx_env="$HOME/Library/Application Support/com.pais.handy.mlx/venv"
@@ -20,9 +20,9 @@ Handy MLX is an Apple Silicon dictation app based on [Handy v0.10.1](https://git
    "$mlx_env/bin/python" -I scripts/configure-mlx.py
    ```
 
-   Setup looks in the Hugging Face cache for a previously downloaded model. For a different location or revision, pass `--snapshot "/absolute/path/to/snapshot"`. The directory must contain `config.json` and `weights.safetensors`. The script records their location in `~/Library/Application Support/com.pais.handy.mlx/whisper-mlx.json`. Keep the Python environment and the snapshot at those paths.
+   Setup looks in the Hugging Face cache for a previously downloaded model. For a different location or revision, pass `--snapshot "/absolute/path/to/snapshot"`. The directory must contain `config.json` and `weights.safetensors`. The script records their location in `~/Library/Application Support/com.pais.handy.mlx/whisper-mlx.json`. If either path moves, move the configuration file to a backup location and rerun setup.
 
-3. For the prebuilt app, download `Handy-MLX-arm64.zip` and `SHA256SUMS` from the same [fork release](https://github.com/msadikyildiz/handy-mlx/releases). From the download directory, run `shasum -a 256 -c SHA256SUMS`, unzip the app and move it to Applications. The build is ad-hoc signed and has no Apple notarization.
+3. For the prebuilt app, download `Handy-MLX-arm64.zip` and `SHA256SUMS` from the same [fork release](https://github.com/msadikyildiz/handy-mlx/releases). From the download directory, run `shasum -a 256 -c SHA256SUMS`, unzip the app and move it to Applications. The build is ad-hoc signed and has no Apple notarization. If macOS blocks the first launch, try opening the app once, then select **System Settings → Privacy & Security → Open Anyway** for Handy MLX. [Apple’s instructions](https://support.apple.com/en-us/102445)
 
    To build from source with Bun, Rust, CMake and the Xcode Command Line Tools installed, run
 
@@ -32,7 +32,7 @@ Handy MLX is an Apple Silicon dictation app based on [Handy v0.10.1](https://git
    open "src-tauri/target/release/bundle/macos/Handy MLX.app"
    ```
 
-4. Select **Whisper Large v3 Turbo (MLX)** in Models. Grant macOS Microphone and Accessibility permissions for live dictation and text insertion. If you also run upstream Handy, choose different recording shortcuts.
+4. Select **Whisper Large v3 Turbo (MLX)** in Models. Grant macOS Microphone and Accessibility permissions for live dictation and text insertion. After an update, if the shortcut or paste stops working, remove the old Handy MLX entry from Accessibility and add the installed app again. If you also run upstream Handy, choose different recording shortcuts.
 
 For scripts and agents, the model ID is `shared:whisper-mlx`. From the checkout, test a 16 kHz mono WAV with
 

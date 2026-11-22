@@ -27,22 +27,26 @@ impl MlxConfig {
             "MLX needs Apple Silicon"
         );
         let path = crate::portable::app_data_dir(app)?.join("whisper-mlx.json");
-        let config: Self = serde_json::from_slice(&std::fs::read(&path)?)
-            .with_context(|| format!("Reading {}", path.display()))?;
+        let bytes = std::fs::read(&path).with_context(|| format!("Reading {}", path.display()))?;
+        let config: Self = serde_json::from_slice(&bytes)
+            .with_context(|| format!("Parsing {}", path.display()))?;
         ensure!(
             config.python.is_absolute() && config.python.is_file(),
-            "Missing MLX Python interpreter"
+            "Missing MLX Python interpreter at {}",
+            config.python.display()
         );
         ensure!(
             config.snapshot.is_absolute()
                 && config.snapshot.join("config.json").is_file()
                 && config.snapshot.join("weights.safetensors").is_file(),
-            "Missing MLX Whisper snapshot"
+            "Missing MLX Whisper snapshot at {}",
+            config.snapshot.display()
         );
         if let Some(script) = &config.script {
             ensure!(
                 script.is_absolute() && script.is_file(),
-                "Missing MLX worker script"
+                "Missing MLX worker script at {}",
+                script.display()
             );
         }
         Ok(config)

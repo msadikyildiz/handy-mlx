@@ -20,7 +20,7 @@ def main():
     try:
         import mlx_whisper  # The app starts this same Python in isolated mode.
         from huggingface_hub import snapshot_download
-        from huggingface_hub.errors import LocalEntryNotFoundError
+        from huggingface_hub.utils import LocalEntryNotFoundError
     except ImportError as error:
         parser.exit(1, f"Install mlx-whisper in this Python environment first: {error}\n")
 
@@ -55,7 +55,7 @@ def main():
             os.link(temp, target)
         except FileExistsError:
             if json.loads(target.read_text()) != desired:
-                parser.exit(1, f"An existing configuration is in use. Review {target} to change it.\n")
+                parser.exit(1, f"An existing configuration is in use. To register a different environment or snapshot, move {target} to a backup path and rerun setup.\n")
     finally:
         temp.unlink(missing_ok=True)
     print(f"Configured shared:whisper-mlx in {target}\nSnapshot: {snapshot}")
